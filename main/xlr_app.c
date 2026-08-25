@@ -175,18 +175,12 @@ static lv_obj_t *card(void) {
     return obj;
 }
 
-static void render(const char *eyebrow, const char *title, const char *body,
-                   const char *footer) {
-    paper_screen(eyebrow);
-    s_title = lv_label_create(s_scr);
-    style_label(s_title, 208, LV_TEXT_ALIGN_CENTER, INK);
-    lv_label_set_text(s_title, title);
-    lv_obj_set_pos(s_title, 16, 64);
-    rule(s_scr, 96, 108, 48, VERMILION);
+static void render(const char *title, const char *body, const char *footer) {
+    paper_screen(title);
     s_body = lv_label_create(s_scr);
     style_label(s_body, 188, LV_TEXT_ALIGN_LEFT, MUTED);
     lv_label_set_text(s_body, body);
-    lv_obj_set_pos(s_body, 26, 125);
+    lv_obj_set_pos(s_body, 26, 68);
     lv_obj_t *hint = lv_label_create(s_scr);
     style_hint(hint);
     lv_label_set_text(hint, footer);
@@ -269,22 +263,18 @@ static void show_about(void) {
     char footer[64];
     s_page = PAGE_ABOUT;
     if (s_about_page == 0) {
-        paper_screen("掌诀位置");
-        s_title = lv_label_create(s_scr);
-        style_label(s_title, 208, LV_TEXT_ALIGN_CENTER, INK);
-        lv_label_set_text(s_title, "为什么叫“掐指一算”");
-        lv_obj_set_pos(s_title, 16, 62);
-        rule(s_scr, 96, 91, 48, VERMILION);
+        paper_screen("为什么叫“掐指一算”");
 
         lv_obj_t *hand = lv_image_create(s_scr);
         lv_image_set_src(hand, &xlr_finger_guide);
-        lv_obj_set_pos(hand, 40, 97);
+        lv_image_set_scale(hand, 192);
+        lv_obj_set_pos(hand, 60, 61);
 
         s_body = lv_label_create(s_scr);
         style_label(s_body, 208, LV_TEXT_ALIGN_CENTER, MUTED);
         lv_obj_set_style_text_line_space(s_body, 4, 0);
         lv_label_set_text(s_body, "六宫在左手有固定位置，\n沿着它们循环计数。 ");
-        lv_obj_set_pos(s_body, 16, 244);
+        lv_obj_set_pos(s_body, 16, 184);
 
         lv_obj_t *hint = lv_label_create(s_scr);
         style_hint(hint);
@@ -294,7 +284,7 @@ static void show_about(void) {
         return;
     }
     lv_snprintf(footer, sizeof(footer), "↑↓翻页·%d/4·●返回", s_about_page + 1);
-    render("小六壬简介", titles[s_about_page - 1], bodies[s_about_page - 1], footer);
+    render(titles[s_about_page - 1], bodies[s_about_page - 1], footer);
 }
 
 static void show_record(void) {
