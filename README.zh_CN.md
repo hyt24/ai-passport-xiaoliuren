@@ -1,3 +1,5 @@
+[English](README.md) | 简体中文
+
 # FoloToy AI Passport
 
 > 当前主程序：**小六壬**。这是为 FoloToy AI Passport（ESP32-C3、240 × 320 屏幕、三枚实体键和麦克风）制作的离线小六壬应用。
@@ -23,8 +25,6 @@ idf.py -p /dev/cu.usbmodem flash
 ### 参考与致谢
 
 小六壬的页面内容、交互思路与起卦体验参考了 [小六壬网页项目](https://youvibe.cn/s/zhgxVMPRMFb)。感谢原项目提供的灵感与参考。
-
-[English](README.md) | 简体中文
 
 FoloToy AI Passport 是一个面向 AI agent 的开放式可穿戴 AI 硬件，本仓库是这款 AI 硬件的开发基线。它不只展示“板子能运行什么”，还把 agent 开发应用所需的**硬件事实、稳定接口、资源边界、参考实现和验收方法**放在同一仓库中。
 

@@ -1,3 +1,5 @@
+English | [简体中文](README.zh_CN.md)
+
 # FoloToy AI Passport
 
 > Current firmware: **Xiao Liu Ren** — an offline Chinese divination companion for the FoloToy AI Passport (ESP32-C3, 240 × 320 display, three physical buttons, and microphone).
@@ -23,8 +25,6 @@ See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for font and asset attribut
 ### Reference and thanks
 
 The Xiao Liu Ren content, interaction direction, and casting experience were informed by the [Xiao Liu Ren web project](https://youvibe.run/s/zhgxVMPRMFb). Thank you to the original project for its inspiration and reference.
-
-English | [简体中文](README.zh_CN.md)
 
 FoloToy AI Passport is open wearable AI hardware designed for AI agents. This repository is the development baseline for the device. It goes beyond showing “what the board can run” by keeping the **hardware facts, stable interfaces, resource boundaries, reference implementations, and validation methods** that an agent needs to build applications in one place.
 
