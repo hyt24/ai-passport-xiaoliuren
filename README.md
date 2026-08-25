@@ -22,7 +22,7 @@ See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for font and asset attribut
 
 ### Reference and thanks
 
-The Xiao Liu Ren content, interaction direction, and casting experience were informed by the [Xiao Liu Ren web project](https://youvibe.cn/s/zhgxVMPRMFb). Thank you to the original project for its inspiration and reference.
+The Xiao Liu Ren content, interaction direction, and casting experience were informed by the [Xiao Liu Ren web project](https://youvibe.run/s/zhgxVMPRMFb). Thank you to the original project for its inspiration and reference.
 
 English | [简体中文](README.zh_CN.md)
 
