@@ -20,6 +20,18 @@ idf.py build
 idf.py -p /dev/cu.usbmodem flash
 ```
 
+### 直接烧录 `.bin`
+
+不想配置开发环境时，可从 [GitHub Releases](https://github.com/hyt24/ai-passport-xiaoliuren/releases/latest) 下载 `xiaoliuren-v0.1.0.bin`。这是包含启动程序、分区表与应用的完整固件，**只适用于 FoloToy AI Passport（ESP32-C3）**。
+
+安装 `esptool` 后，连接设备并执行：
+
+```sh
+esptool --chip esp32c3 --port <设备串口> --baud 460800 write_flash 0x0 xiaoliuren-v0.1.0.bin
+```
+
+macOS 常见串口形如 `/dev/cu.usbmodem101`；请勿将该固件烧录到未知型号的设备。
+
 字体与素材归属见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。下方保留硬件开发基线说明。
 
 ### 参考与致谢
