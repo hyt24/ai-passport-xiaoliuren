@@ -32,6 +32,8 @@ esptool --chip esp32c3 --port <设备串口> --baud 460800 write_flash 0x0 xiaol
 
 macOS 常见串口形如 `/dev/cu.usbmodem101`；请勿将该固件烧录到未知型号的设备。
 
+供 AI agent 执行安装时，请遵循 [Agent 安装小六壬固件指南](docs/AGENT_INSTALL_XIAOLIUREN.md)。
+
 字体与素材归属见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。下方保留硬件开发基线说明。
 
 ### 参考与致谢

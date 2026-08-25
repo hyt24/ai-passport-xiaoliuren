@@ -32,6 +32,8 @@ esptool --chip esp32c3 --port <device-port> --baud 460800 write_flash 0x0 xiaoli
 
 On macOS, the port commonly resembles `/dev/cu.usbmodem101`. Do not flash this image to an unknown device model.
 
+Agents installing the firmware should follow the [Agent Xiao Liu Ren installation guide](docs/AGENT_INSTALL_XIAOLIUREN.md).
+
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for font and asset attributions. The hardware development baseline follows below.
 
 ### Reference and thanks
