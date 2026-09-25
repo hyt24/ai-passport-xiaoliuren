@@ -6,3 +6,6 @@ dependencies.lock
 .vscode/
 assets/xuan-paper-source.png
 assets/xuan-paper-footer.png
+
+.DS_Store
+dist/

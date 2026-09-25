@@ -17,8 +17,7 @@ static void on_key(bsp_btn_t btn, bsp_btn_ev_t ev, void *user) {
 }
 
 void app_main(void) {
-    ESP_LOGI(TAG, "Xiao Liu Ren starting");
-    xlr_net_start();
+    ESP_LOGI(TAG, "AI Passport Xiaoliuren starting");
     bsp_i2c_init();
     bsp_i2c_scan();
     if (bsp_display_init() != ESP_OK || !bsp_lvgl_init()) {
@@ -29,6 +28,7 @@ void app_main(void) {
     bsp_display_backlight(100);
     bool button_ok = bsp_button_init(on_key, NULL) == ESP_OK;
     bool audio_ok = bsp_audio_init() == ESP_OK;
+    xlr_net_start();
     if (bsp_lvgl_lock(1000)) {
         xlr_app_start(audio_ok);
         bsp_lvgl_unlock();

@@ -1,11 +1,11 @@
 # Agent 安装小六壬固件指南
 
-本文给 AI agent 使用，用于协助用户把公开 Release 中的小六壬固件安装到 **FoloToy AI Passport（ESP32-C3）**。当前稳定版本为 [`v0.1.0`](https://github.com/hyt24/ai-passport-xiaoliuren/releases/tag/v0.1.0)。
+本文给 AI agent 使用，用于协助用户把公开 Release 中的小六壬固件安装到 **FoloToy AI Passport（ESP32-C3）**。当前稳定版本为 [`v0.2.0`](https://github.com/hyt24/ai-passport-xiaoliuren/releases/tag/v0.2.0)。
 
 ## 安全边界
 
 - 仅适用于已确认是 FoloToy AI Passport 的 ESP32-C3 设备；型号不明时不要烧录。
-- 烧录会覆盖设备上的现有应用。必须在实际执行写入命令前，向用户说明此影响并取得明确同意。
+- 烧录会覆盖设备上的现有应用；完整镜像同时重置 Wi-Fi 配置，安装后需重新扫码配网。必须在实际执行写入命令前，向用户说明此影响并取得明确同意。
 - 不要使用 `erase_flash`，也不要猜测串口或替用户选择多个候选设备。
 - 不上传、记录或展示用户的 Wi-Fi 密码、令牌或其他私密数据。
 - 若设备正在供电不足、频繁断连或端口消失，停止操作并请用户处理连接问题。
@@ -28,15 +28,15 @@ ls /dev/cu.usbmodem*
 
 ```sh
 curl -L \
-  https://github.com/hyt24/ai-passport-xiaoliuren/releases/download/v0.1.0/xiaoliuren-v0.1.0.bin \
-  -o /private/tmp/xiaoliuren-v0.1.0.bin
-shasum -a 256 /private/tmp/xiaoliuren-v0.1.0.bin
+  https://github.com/hyt24/ai-passport-xiaoliuren/releases/download/v0.2.0/xiaoliuren-v0.2.0.bin \
+  -o /private/tmp/xiaoliuren-v0.2.0.bin
+shasum -a 256 /private/tmp/xiaoliuren-v0.2.0.bin
 ```
 
-`v0.1.0` 的 SHA-256 必须为：
+`v0.2.0` 的 SHA-256 必须为：
 
 ```text
-35a1bdc2a527e3abf549f1ca7b6232b39545058072fad7bebf7fe0d2f72d7db5
+3441590599deee0baa147f8b6e27e4bb73204009173c80d7b761d3a98646fb34
 ```
 
 校验失败时，删除该下载文件后重新下载；不要烧录校验不匹配的文件。
@@ -47,7 +47,7 @@ shasum -a 256 /private/tmp/xiaoliuren-v0.1.0.bin
 
 ```sh
 esptool --chip esp32c3 --port <设备串口> --baud 460800 \
-  write_flash 0x0 /private/tmp/xiaoliuren-v0.1.0.bin
+  write_flash 0x0 /private/tmp/xiaoliuren-v0.2.0.bin
 ```
 
 成功输出应包含 `Hash of data verified` 与 `Hard resetting via RTS pin`。烧录后设备会自动重启。

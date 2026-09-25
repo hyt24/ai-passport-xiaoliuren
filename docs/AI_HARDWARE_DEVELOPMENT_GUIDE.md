@@ -211,16 +211,9 @@ FoloToy AI Passport 的所有硬件批次均使用 8 MB Flash，`sdkconfig.defau
 4. 初始化应尽量幂等，错误应返回 `esp_err_t` 并输出包含引脚/地址的诊断日志。
 5. 明确 API 的线程、阻塞、内存所有权、任务上下文和失败返回值。
 
-新增硬件验证页：
+小六壬应用扩展：
 
-1. 创建 `main/demo_<feature>.c`，实现 `enter`、`exit`、`key`。
-2. 在 `main/demo.h` 声明，在 `main/CMakeLists.txt` 加源文件，在 `main.c` 的 `DEMOS[]` 注册。
-3. `enter` 创建并加载自己的 screen；`exit` 先停任务/定时器，再删 screen 和清空指针。
-4. 页面文字保持英文；说明性注释可用中文。
-5. 慢操作放工作任务，结果通过 LVGL 锁更新界面。
-6. 保留 OK 长按返回这一全局交互，不在页面重复实现。
-
-如果菜单项依赖新外设，还需扩展 `s_ok[]` 初始化与失败禁用逻辑。注意当前数组索引与 `DEMOS[]` 顺序隐式对应，修改顺序时必须同步核对。
+在 `main/xlr_app.c` 的页面状态和按键处理内扩展交互；联网逻辑位于 `xlr_net.c`，历法和计数分别位于 `xlr_calendar.c` 与 `xlr_logic.c`。本仓库已移除官方示例菜单，不再使用 `demo.h`、`DEMOS[]` 或 `s_ok[]`。离开页面时先停止相关任务和定时器，再删除对象；慢操作放工作任务，界面保持中文并通过 LVGL 锁更新。
 
 ## 12. 开发环境搭建
 
@@ -364,7 +357,7 @@ idf.py flash monitor
 
 配置陈旧时可执行 `idf.py fullclean`，但这会删除生成的 build 状态；不要用它处理源码工作区问题。
 
-仓库有 `tests/test_ui_pixel_math.c` 轻量逻辑测试源，但当前根 CMake 是 ESP-IDF 工程，未提供统一的 host test 命令。因此 `idf.py build` 是最低自动检查，硬件变更必须上板。
+仓库提供起卦、历法、联网和配网协议的主机测试，执行命令见 README。`idf.py build` 是最低编译检查，硬件变更仍须上板验收。
 
 ### 通用上板验收
 

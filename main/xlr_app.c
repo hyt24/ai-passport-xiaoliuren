@@ -2,11 +2,14 @@
 #include "bsp_audio.h"
 #include "bsp_display.h"
 #include "xlr_logic.h"
+#include "xlr_calendar.h"
+#include "xlr_net.h"
 #include "lvgl.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
 #include <stdlib.h>
+#include <string.h>
 
 LV_FONT_DECLARE(xlr_font_16);
 LV_FONT_DECLARE(xlr_font_display_48);
@@ -25,7 +28,7 @@ LV_IMAGE_DECLARE(xlr_paper_texture);
 #define VERMILION 0xB7482F
 
 typedef enum { PAGE_WELCOME, PAGE_KEYS, PAGE_ABOUT, PAGE_RECORD, PAGE_RECORDING, PAGE_NUMBERS,
-               PAGE_RESULT } page_t;
+               PAGE_RESULT, PAGE_METHOD, PAGE_TIME } page_t;
 static const char *TAG = "xlr_app";
 static page_t s_page;
 static lv_obj_t *s_scr, *s_body, *s_title, *s_mic_dot, *s_mic_ring;
@@ -37,6 +40,15 @@ static uint32_t s_number = 1, s_numbers[3];
 static int s_number_index, s_result_page, s_about_page;
 static int s_repeat_direction, s_repeat_ticks;
 static xlr_cast_t s_cast;
+static bool s_time_cast;
+static xlr_moment_t s_moment;
+static lv_timer_t *s_time_timer;
+static lv_obj_t *s_qr_panel, *s_time_hint;
+static bool s_qr_link;
+static char s_qr_payload[256];
+
+static void show_time(void);
+static void show_method(void);
 
 static void change_number(int direction, bool fast);
 
@@ -145,8 +157,14 @@ static lv_obj_t *ink_title(lv_obj_t *parent, const char *text, int width, int x,
 }
 
 static lv_obj_t *paper_screen(const char *eyebrow) {
+    if (s_time_timer) {
+        lv_timer_delete(s_time_timer); s_time_timer = NULL;
+        xlr_net_close_provision();
+    }
     if (s_anim_timer) { lv_timer_delete(s_anim_timer); s_anim_timer = NULL; }
     if (s_scr) lv_obj_delete(s_scr);
+    s_qr_panel = NULL;
+    s_qr_payload[0] = 0;
     s_scr = lv_obj_create(NULL);
     lv_obj_remove_flag(s_scr, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(s_scr, lv_color_hex(PAPER), 0);
@@ -287,12 +305,105 @@ static void show_about(void) {
     render(titles[s_about_page - 1], bodies[s_about_page - 1], footer);
 }
 
+static void show_method(void) {
+    s_page = PAGE_METHOD;
+    s_time_cast = false;
+    render("起卦方式", "↑  凭数起卦\n\n↓  按时间起卦\n\n时间起卦需先联网校时。", "↑凭数·↓时间·●返回");
+}
+
+static void clear_qr(void) {
+    if (s_qr_panel) { lv_obj_delete(s_qr_panel); s_qr_panel = NULL; }
+    s_qr_payload[0] = 0;
+    lv_obj_set_pos(s_body, 10, 60);
+    lv_label_set_long_mode(s_body, LV_LABEL_LONG_WRAP);
+}
+
+static bool show_qr(const char *payload) {
+    if (s_qr_panel && !strcmp(payload, s_qr_payload)) return true;
+    clear_qr();
+    s_qr_panel = lv_obj_create(s_scr);
+    lv_obj_remove_flag(s_qr_panel, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_pos(s_qr_panel, 16, 44);
+    lv_obj_set_size(s_qr_panel, 208, 208);
+    lv_obj_set_style_bg_color(s_qr_panel, lv_color_white(), 0);
+    lv_obj_set_style_bg_opa(s_qr_panel, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(s_qr_panel, 0, 0);
+    lv_obj_set_style_radius(s_qr_panel, 0, 0);
+    lv_obj_set_style_pad_all(s_qr_panel, 0, 0);
+    lv_obj_t *qr = lv_qrcode_create(s_qr_panel);
+    lv_qrcode_set_size(qr, 160);
+    lv_qrcode_set_dark_color(qr, lv_color_black());
+    lv_qrcode_set_light_color(qr, lv_color_white());
+    lv_obj_center(qr);
+    /* The surrounding white panel adds >= four modules of quiet zone. */
+    if (lv_qrcode_update(qr, payload, strlen(payload)) != LV_RESULT_OK) {
+        clear_qr();
+        return false;
+    }
+    lv_snprintf(s_qr_payload, sizeof(s_qr_payload), "%s", payload);
+    lv_obj_set_pos(s_body, 10, 253);
+    lv_label_set_long_mode(s_body, LV_LABEL_LONG_MODE_CLIP);
+    return true;
+}
+
+static void time_status(lv_timer_t *timer) {
+    (void)timer;
+    char body[480], payload[256];
+    xlr_net_state_t state = xlr_net_state();
+    if (xlr_net_ap_active()) {
+        lv_label_set_text(s_time_hint, "↑返回·↓重试·●备用");
+        if (s_qr_link) lv_snprintf(payload, sizeof(payload), "http://192.168.4.1");
+        else lv_snprintf(payload, sizeof(payload), "WIFI:T:WPA;S:%s;P:%s;;", xlr_net_ap_name(), xlr_net_ap_password());
+        if (show_qr(payload)) {
+            const char *status = state == XLR_NET_FAILED ? "失败，请重填或按下键重试" :
+                state == XLR_NET_CONNECTING ? "正在连接家中 Wi-Fi" :
+                state == XLR_NET_SYNCING ? "已联网，正在校时" :
+                s_qr_link ? "未打开时扫码进入网页" : "扫码连接，手机自动打开";
+            lv_snprintf(body, sizeof(body), "%s", status);
+        } else {
+            lv_snprintf(body, sizeof(body), "手机连接热点\n%s\n密码 %s\n\n浏览器打开\nhttp://192.168.4.1", xlr_net_ap_name(), xlr_net_ap_password());
+        }
+    } else {
+        clear_qr();
+        lv_label_set_text(s_time_hint, "↑返回·↓配网·●确认");
+        if (xlr_calendar_now(&s_moment)) {
+            lv_snprintf(body, sizeof(body), "已校时 · 北京时间\n%04d-%02d-%02d  %02d:%02d\n\n农历 %s%s%s\n%s\n\n确认时取当前时间起卦",
+                        s_moment.solar_year, s_moment.solar_month, s_moment.solar_day,
+                        s_moment.hour, s_moment.minute, s_moment.leap ? "闰" : "",
+                        xlr_calendar_month_name(s_moment.lunar_month),
+                        xlr_calendar_day_name(s_moment.lunar_day),
+                        xlr_calendar_shichen_name(s_moment.shichen));
+        } else {
+            const char *status = state == XLR_NET_CONNECTING ? "正在连接已保存的 Wi-Fi" :
+                state == XLR_NET_SYNCING ? "已联网，正在校准时间" :
+                state == XLR_NET_FAILED ? "连接或校时失败\n确认重试，下键重新配网" : "尚未校时，请按下键配网";
+            lv_snprintf(body, sizeof(body), "%s\n\n校时成功后才能起卦。\n\n需使用 2.4GHz Wi-Fi。", status);
+        }
+    }
+    lv_label_set_text(s_body, body);
+}
+
+static void show_time(void) {
+    s_page = PAGE_TIME;
+    paper_screen("时间与配网");
+    s_body = lv_label_create(s_scr);
+    style_label(s_body, 220, LV_TEXT_ALIGN_LEFT, MUTED);
+    lv_obj_set_pos(s_body, 10, 60);
+    s_time_hint = lv_label_create(s_scr);
+    style_hint(s_time_hint);
+    lv_obj_align(s_time_hint, LV_ALIGN_BOTTOM_MID, 0, -15);
+    s_qr_link = false;
+    time_status(NULL);
+    s_time_timer = lv_timer_create(time_status, 1000, NULL);
+    lv_screen_load(s_scr);
+}
+
 static void show_record(void) {
     s_page = PAGE_RECORD;
     paper_screen("问事");
     s_title = lv_label_create(s_scr);
     style_label(s_title, 208, LV_TEXT_ALIGN_CENTER, INK);
-    lv_label_set_text(s_title, s_audio_ready ? "按住确定\n默念所问" : "麦克风不可用");
+    lv_label_set_text(s_title, s_audio_ready ? "按住确定\n默念所问" : "默念所问\n按确定继续");
     lv_obj_align(s_title, LV_ALIGN_CENTER, 0, -8);
     rule(s_scr, 96, 203, 48, VERMILION);
     lv_screen_load(s_scr);
@@ -333,7 +444,7 @@ static void show_recording(void) {
     lv_obj_align(s_body, LV_ALIGN_BOTTOM_MID, 0, -27);
     lv_obj_t *hint = lv_label_create(s_scr);
     style_hint(hint);
-    lv_label_set_text(hint, "松开●·进入取数");
+    lv_label_set_text(hint, "松开●·选择起卦方式");
     lv_obj_align(hint, LV_ALIGN_CENTER, 0, 65);
     s_anim_timer = lv_timer_create(mic_anim, 70, NULL);
     lv_screen_load(s_scr);
@@ -390,7 +501,7 @@ static void show_result(void) {
     xlr_palace_t final = s_cast.path[2];
     if (s_result_page == 0) {
         s_page = PAGE_RESULT;
-        paper_screen("卦象 · 1 / 4");
+        paper_screen(s_time_cast ? "时间卦 · 1 / 4" : "卦象 · 1 / 4");
 
         lv_obj_t *seal = lv_obj_create(s_scr);
         lv_obj_remove_flag(seal, LV_OBJ_FLAG_SCROLLABLE);
@@ -422,6 +533,12 @@ static void show_result(void) {
         lv_snprintf(body, sizeof(body), "%lu · %lu · %lu\n\n%s  →  %s  →  %s",
                     (unsigned long)s_cast.input[0], (unsigned long)s_cast.input[1], (unsigned long)s_cast.input[2],
                     xlr_palace_name(s_cast.path[0]), xlr_palace_name(s_cast.path[1]), xlr_palace_name(final));
+        if (s_time_cast) {
+            lv_snprintf(body, sizeof(body), "%s%s%s · %s\n\n%s → %s → %s",
+                        s_moment.leap ? "闰" : "", xlr_calendar_month_name(s_moment.lunar_month),
+                        xlr_calendar_day_name(s_moment.lunar_day), xlr_calendar_shichen_name(s_moment.shichen),
+                        xlr_palace_name(s_cast.path[0]), xlr_palace_name(s_cast.path[1]), xlr_palace_name(final));
+        }
         lv_label_set_text(path, body);
         lv_obj_set_pos(path, 16, 191);
 
@@ -471,7 +588,7 @@ static void show_result(void) {
 static void finish_recording(bool valid) {
     if (!bsp_lvgl_lock(500)) return;
     s_voice_valid = valid;
-    s_number_index = 0; s_number = 1; show_number();
+    if (s_page == PAGE_RECORDING) show_method();
     bsp_lvgl_unlock();
 }
 
@@ -502,7 +619,9 @@ static void audio_worker(void *arg) {
 
 void xlr_app_start(bool audio_ready) {
     s_audio_ready = audio_ready;
-    if (!s_audio_task) xTaskCreate(audio_worker, "xlr_audio", 4096, NULL, 4, &s_audio_task);
+    if (s_audio_ready && !s_audio_task &&
+        xTaskCreate(audio_worker, "xlr_audio", 4096, NULL, 4, &s_audio_task) != pdPASS)
+        s_audio_ready = false;
     show_welcome();
 }
 
@@ -530,6 +649,7 @@ void xlr_app_key(bsp_btn_t btn, bsp_btn_ev_t ev) {
         return;
     }
     if (btn == BSP_BTN_OK && ev == BSP_BTN_LONG && s_page != PAGE_RECORDING) {
+        stop_number_repeat();
         if (s_page == PAGE_RESULT) show_record();
         else show_welcome();
         return;
@@ -549,12 +669,35 @@ void xlr_app_key(bsp_btn_t btn, bsp_btn_ev_t ev) {
         else if (btn == BSP_BTN_DOWN && s_about_page < 3) { s_about_page++; show_about(); }
         else if (btn == BSP_BTN_OK) show_welcome();
         break;
-    case PAGE_RECORD: break;
+    case PAGE_METHOD:
+        if (btn == BSP_BTN_UP) {
+            s_time_cast = false; s_number_index = 0; s_number = 1; show_number();
+        } else if (btn == BSP_BTN_DOWN) show_time();
+        else if (btn == BSP_BTN_OK) show_welcome();
+        break;
+    case PAGE_TIME:
+        if (btn == BSP_BTN_UP) show_method();
+        else if (btn == BSP_BTN_DOWN) {
+            if (xlr_net_ap_active()) xlr_net_retry();
+            else { s_qr_link = false; xlr_net_provision(); }
+        } else if (btn == BSP_BTN_OK) {
+            if (xlr_net_ap_active()) { s_qr_link = !s_qr_link; time_status(NULL); }
+            else if (xlr_calendar_now(&s_moment)) {
+                if (xlr_cast_numbers(s_moment.lunar_month, s_moment.lunar_day, s_moment.shichen, &s_cast)) {
+                    s_time_cast = true; s_result_page = 0; show_result();
+                }
+            } else xlr_net_retry();
+        }
+        break;
+    case PAGE_RECORD:
+        if (btn == BSP_BTN_OK && !s_audio_ready) show_method();
+        break;
     case PAGE_RECORDING: break;
     case PAGE_NUMBERS:
         if (btn == BSP_BTN_UP) change_number(1, false);
         else if (btn == BSP_BTN_DOWN) change_number(-1, false);
         else if (btn == BSP_BTN_OK) {
+            stop_number_repeat();
             s_numbers[s_number_index++] = s_number; s_number = 1;
             if (s_number_index == 3) { xlr_cast_numbers(s_numbers[0], s_numbers[1], s_numbers[2], &s_cast); s_result_page = 0; show_result(); }
             else show_number();
